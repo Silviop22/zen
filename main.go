@@ -57,7 +57,7 @@ func main() {
 			continue
 		}
 
-		proxy.HandleConnection(conn)
+		go proxy.HandleConnection(conn)
 	}
 }
 

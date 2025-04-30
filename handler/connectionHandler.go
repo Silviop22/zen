@@ -43,8 +43,8 @@ func (ch *ConnectionHandler) HandleConnection(clientConnection net.Conn) {
 
 	var clientToBackendErr, backendToClientErr error
 
-	go copy(backendConnection, clientConnection, &waitGroup, backendToClientErr)
-	go copy(clientConnection, backendConnection, &waitGroup, clientToBackendErr)
+	go copyData(backendConnection, clientConnection, &waitGroup, &backendToClientErr)
+	go copyData(clientConnection, backendConnection, &waitGroup, &clientToBackendErr)
 
 	waitGroup.Wait()
 
@@ -61,9 +61,9 @@ func (ch *ConnectionHandler) HandleConnection(clientConnection net.Conn) {
 	clientConnection.Close()
 }
 
-func copy(source net.Conn, target net.Conn, waitGroup *sync.WaitGroup, connectionError error) {
+func copyData(source net.Conn, target net.Conn, waitGroup *sync.WaitGroup, connectionError *error) {
 	defer waitGroup.Done()
-	_, connectionError = io.Copy(source, target)
+	_, *connectionError = io.Copy(source, target)
 
 	if tcpConnection, ok := source.(*net.TCPConn); ok {
 		tcpConnection.CloseWrite()

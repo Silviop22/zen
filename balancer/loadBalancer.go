@@ -1,9 +1,9 @@
 package balancer
 
 import (
-	"zen/backend/model"
+	"zen/backend"
 )
 
 type LoadBalancer interface {
-	Next() (*model.Backend, error)
+	Next() (*backend.Backend, error)
 }

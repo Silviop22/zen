@@ -2,7 +2,6 @@ package backend
 
 import (
 	"sync/atomic"
-	"zen/backend/model"
 )
 
 type Pool struct {
@@ -10,10 +9,10 @@ type Pool struct {
 }
 
 func NewBackendPool(backends []string) *Pool {
-	bps := make([]*model.Backend, 0)
+	bps := make([]*Backend, 0)
 	for _, addr := range backends {
 		connPool := NewConnectionPool(addr, 10, 100, 30)
-		bps = append(bps, &model.Backend{
+		bps = append(bps, &Backend{
 			Address:        addr,
 			ConnectionPool: connPool,
 			Alive:          true})
@@ -26,6 +25,6 @@ func NewBackendPool(backends []string) *Pool {
 	}
 }
 
-func (backendPool *Pool) GetAliveBackends() []*model.Backend {
-	return backendPool.aliveBackends.Load().([]*model.Backend)
+func (backendPool *Pool) GetAliveBackends() []*Backend {
+	return backendPool.aliveBackends.Load().([]*Backend)
 }

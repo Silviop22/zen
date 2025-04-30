@@ -4,7 +4,6 @@ import (
 	"errors"
 	"sync/atomic"
 	"zen/backend"
-	"zen/backend/model"
 )
 
 type RoundRobin struct {
@@ -18,7 +17,7 @@ func NewRoundRobin(backendPool *backend.Pool) *RoundRobin {
 	}
 }
 
-func (rr *RoundRobin) Next() (*model.Backend, error) {
+func (rr *RoundRobin) Next() (*backend.Backend, error) {
 	aliveBackends := rr.backendPool.GetAliveBackends()
 	if aliveBackends == nil || len(aliveBackends) == 0 {
 		return nil, errors.New("no available backends")
