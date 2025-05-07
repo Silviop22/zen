@@ -47,7 +47,6 @@ func main() {
 	backendPool := getBackendPool(&cfg)
 	backendPool.GetAliveBackends()
 	loadBalancer := balancer.NewRoundRobin(backendPool)
-
 	proxy := handler.NewConnectionHandler(loadBalancer)
 
 	for {

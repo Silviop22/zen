@@ -9,6 +9,13 @@ import (
 	"zen/utils/logger"
 )
 
+var (
+	ErrPoolClosed      = errors.New("connection pool is closed")
+	ErrPoolExhausted   = errors.New("connection pool exhausted")
+	ErrConnectionError = errors.New("connection error")
+	ErrContextCanceled = errors.New("operation canceled by context")
+)
+
 type ConnectionPool struct {
 	config      *ConnectionPoolConfig
 	mu          sync.Mutex
@@ -18,10 +25,11 @@ type ConnectionPool struct {
 }
 
 type ConnectionPoolConfig struct {
-	address     string
-	maxIdle     int
-	maxActive   int
-	idleTimeout time.Duration
+	address        string
+	maxIdle        int
+	maxActive      int
+	idleTimeout    time.Duration
+	connectTimeout time.Duration
 }
 
 type PoolConn struct {
@@ -43,10 +51,11 @@ func NewConnectionPool(address string, maxIdle, maxActive int, idleTimeout time.
 
 func newConfig(address string, maxIdle, maxActive int, idleTimeout time.Duration) *ConnectionPoolConfig {
 	return &ConnectionPoolConfig{
-		address:     address,
-		maxIdle:     maxIdle,
-		maxActive:   maxActive,
-		idleTimeout: idleTimeout,
+		address:        address,
+		maxIdle:        maxIdle,
+		maxActive:      maxActive,
+		idleTimeout:    idleTimeout,
+		connectTimeout: 5 * time.Second,
 	}
 }
 
