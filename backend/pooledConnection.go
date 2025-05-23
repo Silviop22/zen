@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"context"
 	"net"
 	"sync"
 	"time"
@@ -26,46 +25,4 @@ func (pc *PooledConnection) Close() error {
 		pc.pool.put(pc.conn)
 	})
 	return nil
-}
-
-func (pc *PooledConnection) ReadContext(ctx context.Context, bytes []byte) (int, error) {
-	done := make(chan struct{})
-	var count int
-	var err error
-
-	go func() {
-		count, err = pc.conn.Read(bytes)
-		close(done)
-	}()
-
-	select {
-	case <-ctx.Done():
-		pc.conn.SetReadDeadline(time.Now())
-		<-done
-		pc.conn.SetReadDeadline(time.Time{})
-		return count, ctx.Err()
-	case <-done:
-		return count, err
-	}
-}
-
-func (pc *PooledConnection) WriteContext(ctx context.Context, bytes []byte) (int, error) {
-	done := make(chan struct{})
-	var count int
-	var err error
-
-	go func() {
-		pc.conn.Write(bytes)
-		close(done)
-	}()
-
-	select {
-	case <-ctx.Done():
-		pc.conn.SetWriteDeadline(time.Now())
-		<-done
-		pc.conn.SetWriteDeadline(time.Time{})
-		return count, ctx.Err()
-	case <-done:
-		return count, err
-	}
 }

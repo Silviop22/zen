@@ -2,7 +2,6 @@ package backend
 
 import (
 	"errors"
-	"io"
 	"net"
 	"sync"
 	"time"
@@ -10,10 +9,8 @@ import (
 )
 
 var (
-	ErrPoolClosed      = errors.New("connection pool is closed")
-	ErrPoolExhausted   = errors.New("connection pool exhausted")
-	ErrConnectionError = errors.New("connection error")
-	ErrContextCanceled = errors.New("operation canceled by context")
+	ErrPoolClosed    = errors.New("connection pool is closed")
+	ErrPoolExhausted = errors.New("connection pool exhausted")
 )
 
 type ConnectionPool struct {
@@ -65,24 +62,27 @@ func (cp *ConnectionPool) Get() (net.Conn, error) {
 	defer cp.mu.Unlock()
 
 	if cp.closed {
-		return nil, net.ErrClosed
+		return nil, ErrPoolClosed
 	}
 
-	if n := len(cp.idleConns); n > 0 {
-		conn := cp.idleConns[n-1].conn
-		cp.idleConns = cp.idleConns[:n-1]
-		return &PooledConnection{conn: conn, pool: cp}, nil
+	for len(cp.idleConns) > 0 {
+		n := len(cp.idleConns) - 1
+		poolConn := cp.idleConns[n]
+		cp.idleConns = cp.idleConns[:n]
+
+		logger.Debug("Reusing idle connection to {}", poolConn.conn.RemoteAddr())
+		return &PooledConnection{conn: poolConn.conn, pool: cp}, nil
 	}
 
 	if cp.activeCount >= cp.config.maxActive {
-		logger.Warn("Max active connections reached: {}. Waiting for an idle connection.", cp.config.maxActive)
-		return nil, errors.New("connection pool exhausted")
+		logger.Warn("Max active connections reached: {}. Pool exhausted.", cp.config.maxActive)
+		return nil, ErrPoolExhausted
 	}
 
 	address := cp.config.address
-	conn, err := net.Dial("tcp", address)
+	conn, err := net.DialTimeout("tcp", address, cp.config.connectTimeout)
 	if err != nil {
-		logger.Error("Failed to establish connection with backend server: {}", address, err)
+		logger.Error("Failed to establish connection with backend server: {} - {}", address, err)
 		return nil, err
 	}
 
@@ -100,15 +100,9 @@ func (cp *ConnectionPool) put(conn net.Conn) {
 		return
 	}
 
-	if tcpConn, ok := conn.(*net.TCPConn); ok {
-		err := cp.validateConnection(tcpConn, conn)
-		if err != nil {
-			logger.Error("Failed to validate connection: {}", err)
-		}
-	}
-
 	if len(cp.idleConns) >= cp.config.maxIdle {
 		conn.Close()
+		cp.activeCount--
 		return
 	}
 
@@ -116,8 +110,6 @@ func (cp *ConnectionPool) put(conn net.Conn) {
 		conn:       conn,
 		lastUsedAt: time.Now(),
 	})
-	cp.activeCount--
-
 }
 
 func (cp *ConnectionPool) Close() {
@@ -131,23 +123,6 @@ func (cp *ConnectionPool) Close() {
 	}
 
 	cp.idleConns = nil
-}
-
-func (cp *ConnectionPool) validateConnection(tcpConn *net.TCPConn, conn net.Conn) error {
-	if err := tcpConn.SetReadDeadline(time.Now().Add(time.Millisecond)); err != nil {
-		conn.Close()
-		return nil
-	}
-
-	one := make([]byte, 1)
-	if _, err := tcpConn.Read(one); err != io.EOF {
-		// Either there's data (not what we want) or an error
-		conn.Close()
-		cp.activeCount--
-		return nil
-	}
-
-	return tcpConn.SetReadDeadline(time.Time{})
 }
 
 func (cp *ConnectionPool) periodicCleanup() {
@@ -175,6 +150,7 @@ func (cp *ConnectionPool) cleanup() {
 		if now.Sub(idleConn.lastUsedAt) > cp.config.idleTimeout {
 			logger.Debug("Closing idle connection: {}", idleConn.conn.RemoteAddr())
 			idleConn.conn.Close()
+			cp.activeCount--
 		} else {
 			remainingIdleConnections = append(remainingIdleConnections, idleConn)
 		}
