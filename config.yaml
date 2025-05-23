@@ -1,3 +1,9 @@
 server:
   port:
 upstream:
+health_check:
+  enabled: true
+  interval: 30s
+  timeout: 5s
+  healthy_threshold: 2
+  unhealthy_threshold: 3

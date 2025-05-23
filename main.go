@@ -4,11 +4,19 @@ import (
 	"flag"
 	"net"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 	"zen/backend"
 	"zen/balancer"
 	"zen/config"
 	"zen/handler"
 	"zen/utils/logger"
+)
+
+var (
+	backendPool   *backend.Pool
+	healthChecker *backend.HealthChecker
 )
 
 func init() {
@@ -32,27 +40,45 @@ func main() {
 	var cfg config.Config
 	err := config.ParseConfig(&cfg, configPath)
 	if err != nil {
-		logger.Fatal("Failed to parse configuration file:", err)
+		logger.Fatal("Failed to parse configuration file: {}", err)
 		os.Exit(1)
 	}
 
-	logger.Info("Starting server...")
+	logger.Info("Starting load balancer server...")
 	ln, err := net.Listen("tcp", ":"+cfg.Server.Port)
 	if err != nil {
-		logger.Fatal("Failed to start server on port {}:", cfg.Server.Port, err)
+		logger.Fatal("Failed to start server on port {}: {}", cfg.Server.Port, err)
 		cleanUp()
 		os.Exit(1)
 	}
 
-	backendPool := getBackendPool(&cfg)
-	backendPool.GetAliveBackends()
+	backendPool = getBackendPool(&cfg)
+
+	if cfg.HealthCheck.Enabled {
+		healthCheckConfig := &backend.HealthCheckConfig{
+			Interval:           cfg.HealthCheck.Interval,
+			Timeout:            cfg.HealthCheck.Timeout,
+			HealthyThreshold:   cfg.HealthCheck.HealthyThreshold,
+			UnhealthyThreshold: cfg.HealthCheck.UnhealthyThreshold,
+		}
+		healthChecker = backend.NewHealthChecker(backendPool, healthCheckConfig)
+		healthChecker.Start()
+		logger.Info("Health checker started")
+	} else {
+		logger.Info("Health checking disabled")
+	}
+
 	loadBalancer := balancer.NewRoundRobin(backendPool)
 	proxy := handler.NewConnectionHandler(loadBalancer)
+
+	go handleShutdown()
+
+	logger.Info("Load balancer ready on port {}", cfg.Server.Port)
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			logger.Error("Failed to accept connection:", err)
+			logger.Error("Failed to accept connection: {}", err)
 			continue
 		}
 
@@ -60,14 +86,42 @@ func main() {
 	}
 }
 
+func handleShutdown() {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	sig := <-sigChan
+	logger.Info("Received signal: {}. Shutting down...", sig)
+
+	cleanUp()
+	os.Exit(0)
+}
+
 func cleanUp() {
 	logger.Info("Shutting down server...")
-	//TODO: Perform cleanup
+
+	if healthChecker != nil {
+		healthChecker.Stop()
+	}
+
+	if backendPool != nil {
+		backendPool.Close()
+	}
+
+	time.Sleep(1 * time.Second)
+
 	logger.Info("Server shut down successfully.")
 }
 
 func getBackendPool(cfg *config.Config) *backend.Pool {
-	logger.Info("Getting list of upstream servers...")
+	logger.Info("Initializing backend pool with {} upstream servers", len(cfg.Upstream))
+
+	if len(cfg.Upstream) == 0 {
+		logger.Fatal("No upstream servers configured")
+		cleanUp()
+		os.Exit(1)
+	}
+
 	backendPool := backend.NewBackendPool(cfg.Upstream)
 	if backendPool == nil {
 		logger.Fatal("Failed to create backend pool")
@@ -75,6 +129,7 @@ func getBackendPool(cfg *config.Config) *backend.Pool {
 		os.Exit(1)
 	}
 
-	logger.Info("Backend pool created with {} backends", len(backendPool.GetAliveBackends()))
+	total, alive := backendPool.GetBackendCount()
+	logger.Info("Backend pool initialized: {}/{} backends alive", alive, total)
 	return backendPool
 }
