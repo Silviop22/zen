@@ -20,11 +20,11 @@ func NewConnectionHandler(balancer balancer.LoadBalancer) *ConnectionHandler {
 
 func (ch *ConnectionHandler) HandleConnection(clientConnection net.Conn) {
 	address := clientConnection.RemoteAddr().String()
-	logger.Info("New connection from {}", address)
+	logger.Info("New connection from %s", address)
 
 	backend, err := ch.balancer.Next()
 	if err != nil {
-		logger.Error("Failed to retrieve next available backend: {}", err)
+		logger.Error("Failed to retrieve next available backend: %v", err)
 		clientConnection.Write([]byte("ERROR: Could not select backend server\n"))
 		clientConnection.Close()
 		return
@@ -32,7 +32,7 @@ func (ch *ConnectionHandler) HandleConnection(clientConnection net.Conn) {
 
 	backendConnection, err := backend.ConnectionPool.Get()
 	if err != nil {
-		logger.Error("Failed to get backend connection: {}", err)
+		logger.Error("Failed to get backend connection: %v", err)
 		clientConnection.Write([]byte("ERROR: Could not connect to backend server\n"))
 		clientConnection.Close()
 		return
@@ -49,13 +49,13 @@ func (ch *ConnectionHandler) HandleConnection(clientConnection net.Conn) {
 	waitGroup.Wait()
 
 	if clientToBackendErr != nil && clientToBackendErr != io.EOF {
-		logger.Error("Error copying client to backend for {}: {}", address, clientToBackendErr)
+		logger.Error("Error copying client to backend for %s: %v", address, clientToBackendErr)
 	}
 	if backendToClientErr != nil && backendToClientErr != io.EOF {
-		logger.Error("Error copying backend to client for {}: {}", address, backendToClientErr)
+		logger.Error("Error copying backend to client for %s: %v", address, backendToClientErr)
 	}
 
-	logger.Info("Closing connection from {}", address)
+	logger.Info("Closing connection from %s", address)
 	backendConnection.Close()
 	clientConnection.Close()
 }
@@ -67,5 +67,5 @@ func copyData(source net.Conn, target net.Conn, waitGroup *sync.WaitGroup, conne
 	if tcpConnection, ok := target.(*net.TCPConn); ok {
 		tcpConnection.CloseWrite()
 	}
-	logger.Debug("Data copy completed from {} to {}", source.RemoteAddr(), target.RemoteAddr())
+	logger.Debug("Data copy completed from %s to %s", source.RemoteAddr(), target.RemoteAddr())
 }

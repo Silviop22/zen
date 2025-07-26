@@ -61,7 +61,7 @@ func (pool *Pool) updateBackendStatus(address string, alive bool) {
 	}
 
 	if targetBackend == nil {
-		logger.Warn("Backend {} not found during status update", address)
+		logger.Warn("Backend %s not found during status update", address)
 		return
 	}
 
@@ -73,7 +73,7 @@ func (pool *Pool) updateBackendStatus(address string, alive bool) {
 	}
 
 	pool.aliveBackends.Store(aliveBackends)
-	logger.Info("Backend pool updated: {}/{} backends alive", len(aliveBackends), len(pool.allBackends))
+	logger.Info("Backend pool updated: %d/%d backends alive", len(aliveBackends), len(pool.allBackends))
 }
 
 func (pool *Pool) GetBackendCount() (total int, alive int) {

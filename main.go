@@ -130,6 +130,6 @@ func getBackendPool(cfg *config.Config) *backend.Pool {
 	}
 
 	total, alive := backendPool.GetBackendCount()
-	logger.Info("Backend pool initialized: %s/%s backends alive", alive, total)
+	logger.Info("Backend pool initialized: %d/%d backends alive", alive, total)
 	return backendPool
 }

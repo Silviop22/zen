@@ -70,24 +70,24 @@ func (cp *ConnectionPool) Get() (net.Conn, error) {
 		poolConn := cp.idleConns[n]
 		cp.idleConns = cp.idleConns[:n]
 
-		logger.Debug("Reusing idle connection to {}", poolConn.conn.RemoteAddr())
+		logger.Debug("Reusing idle connection to %s", poolConn.conn.RemoteAddr())
 		return &PooledConnection{conn: poolConn.conn, pool: cp}, nil
 	}
 
 	if cp.activeCount >= cp.config.maxActive {
-		logger.Warn("Max active connections reached: {}. Pool exhausted.", cp.config.maxActive)
+		logger.Warn("Max active connections reached: %d. Pool exhausted.", cp.config.maxActive)
 		return nil, ErrPoolExhausted
 	}
 
 	address := cp.config.address
 	conn, err := net.DialTimeout("tcp", address, cp.config.connectTimeout)
 	if err != nil {
-		logger.Error("Failed to establish connection with backend server: {} - {}", address, err)
+		logger.Error("Failed to establish connection with backend server: %s - %v", address, err)
 		return nil, err
 	}
 
 	cp.activeCount++
-	logger.Info("New connection established with backend server: {}", address)
+	logger.Info("New connection established with backend server: %s", address)
 	return &PooledConnection{conn: conn, pool: cp}, nil
 }
 
@@ -148,7 +148,7 @@ func (cp *ConnectionPool) cleanup() {
 
 	for _, idleConn := range cp.idleConns {
 		if now.Sub(idleConn.lastUsedAt) > cp.config.idleTimeout {
-			logger.Debug("Closing idle connection: {}", idleConn.conn.RemoteAddr())
+			logger.Debug("Closing idle connection: %s", idleConn.conn.RemoteAddr())
 			idleConn.conn.Close()
 			cp.activeCount--
 		} else {
