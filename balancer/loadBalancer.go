@@ -6,4 +6,5 @@ import (
 
 type LoadBalancer interface {
 	Next() (*backend.Backend, error)
+	GetAvailableCount() int
 }

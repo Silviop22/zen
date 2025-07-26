@@ -87,7 +87,7 @@ func (cp *ConnectionPool) Get() (net.Conn, error) {
 	}
 
 	cp.activeCount++
-	logger.Info("New connection established with backend server: %s", address)
+	logger.Debug("New connection established with backend server: %s", address)
 	return &PooledConnection{conn: conn, pool: cp}, nil
 }
 

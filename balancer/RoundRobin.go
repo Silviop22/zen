@@ -29,3 +29,11 @@ func (rr *RoundRobin) Next() (*backend.Backend, error) {
 
 	return aliveBackends[selectedIndex], nil
 }
+
+func (rr *RoundRobin) GetAvailableCount() int {
+	aliveBackends := rr.backendPool.GetAliveBackends()
+	if aliveBackends == nil {
+		return 0
+	}
+	return len(aliveBackends)
+}
