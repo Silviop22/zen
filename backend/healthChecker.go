@@ -55,7 +55,7 @@ func NewHealthChecker(pool *Pool, config *HealthCheckConfig) *HealthChecker {
 }
 
 func (hc *HealthChecker) Start() {
-	logger.Info("Starting health checker with interval: {}", hc.config.Interval)
+	logger.Info("Starting health checker with interval: %s", hc.config.Interval)
 
 	backends := hc.pool.GetAliveBackends()
 	hc.mu.Lock()
@@ -108,7 +108,7 @@ func (hc *HealthChecker) checkAllBackends() {
 	}
 
 	wg.Wait()
-	logger.Debug("Health check cycle completed for {} backends", len(allBackends))
+	logger.Debug("Health check cycle completed for %s backends", len(allBackends))
 }
 
 func (hc *HealthChecker) checkBackend(backend *Backend) {
@@ -131,12 +131,12 @@ func (hc *HealthChecker) checkBackend(backend *Backend) {
 		health.consecutiveSuccesses++
 		health.consecutiveFailures = 0
 		health.lastError = nil
-		logger.Debug("Health check SUCCESS for {} (took {}ms)",
+		logger.Debug("Health check SUCCESS for %s (took %sms)",
 			backend.Address, checkDuration.Milliseconds())
 	} else {
 		health.consecutiveFailures++
 		health.consecutiveSuccesses = 0
-		logger.Debug("Health check FAILED for {} (took {}ms)",
+		logger.Debug("Health check FAILED for %s (took %sms)",
 			backend.Address, checkDuration.Milliseconds())
 	}
 
@@ -144,28 +144,20 @@ func (hc *HealthChecker) checkBackend(backend *Backend) {
 }
 
 func (hc *HealthChecker) evaluateBackendStatus(backend *Backend, health *BackendHealth) {
-	currentlyAlive := backend.Alive
+	currentlyAlive := backend.IsAlive()
 	shouldBeAlive := currentlyAlive
 
 	if !currentlyAlive && health.consecutiveSuccesses >= hc.config.HealthyThreshold {
 		shouldBeAlive = true
-		logger.Info("Backend {} is now HEALTHY ({}/%{} successful checks)",
-			backend.Address, health.consecutiveSuccesses, hc.config.HealthyThreshold)
+		logger.Info("Backend %s is now HEALTHY", backend.Address)
 	} else if currentlyAlive && health.consecutiveFailures >= hc.config.UnhealthyThreshold {
 		shouldBeAlive = false
-		logger.Warn("Backend {} is now UNHEALTHY ({}/{} failed checks)",
-			backend.Address, health.consecutiveFailures, hc.config.UnhealthyThreshold)
+		logger.Warn("Backend %s is now UNHEALTHY", backend.Address)
 	}
 
 	if shouldBeAlive != currentlyAlive {
-		backend.Alive = shouldBeAlive
+		backend.SetAlive(shouldBeAlive)
 		hc.pool.updateBackendStatus(backend.Address, shouldBeAlive)
-
-		if shouldBeAlive {
-			logger.Info("Backend {} marked as ALIVE", backend.Address)
-		} else {
-			logger.Warn("Backend {} marked as DEAD", backend.Address)
-		}
 	}
 }
 
@@ -190,13 +182,13 @@ func (hc *HealthChecker) storeLastError(address string, err error) {
 		errStr := err.Error()
 		switch {
 		case strings.Contains(errStr, "connection refused"):
-			logger.Debug("Backend {} connection refused (service down)", address)
+			logger.Debug("Backend %s connection refused (service down)", address)
 		case strings.Contains(errStr, "timeout"):
-			logger.Debug("Backend {} connection timeout (slow/overloaded)", address)
+			logger.Debug("Backend %s connection timeout (slow/overloaded)", address)
 		case strings.Contains(errStr, "network unreachable"):
-			logger.Debug("Backend {} network unreachable", address)
+			logger.Debug("Backend %s network unreachable", address)
 		default:
-			logger.Debug("Backend {} connection error: {}", address, err)
+			logger.Debug("Backend %s connection error: %s", address, err)
 		}
 	}
 }

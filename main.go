@@ -40,14 +40,14 @@ func main() {
 	var cfg config.Config
 	err := config.ParseConfig(&cfg, configPath)
 	if err != nil {
-		logger.Fatal("Failed to parse configuration file: {}", err)
+		logger.Fatal("Failed to parse configuration file: %s", err)
 		os.Exit(1)
 	}
 
 	logger.Info("Starting load balancer server...")
 	ln, err := net.Listen("tcp", ":"+cfg.Server.Port)
 	if err != nil {
-		logger.Fatal("Failed to start server on port {}: {}", cfg.Server.Port, err)
+		logger.Fatal("Failed to start server on port %s: %s", cfg.Server.Port, err)
 		cleanUp()
 		os.Exit(1)
 	}
@@ -73,12 +73,12 @@ func main() {
 
 	go handleShutdown()
 
-	logger.Info("Load balancer ready on port {}", cfg.Server.Port)
+	logger.Info("Load balancer ready on port %s", cfg.Server.Port)
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			logger.Error("Failed to accept connection: {}", err)
+			logger.Error("Failed to accept connection: %s", err)
 			continue
 		}
 
@@ -91,7 +91,7 @@ func handleShutdown() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	sig := <-sigChan
-	logger.Info("Received signal: {}. Shutting down...", sig)
+	logger.Info("Received signal: %s. Shutting down...", sig)
 
 	cleanUp()
 	os.Exit(0)
@@ -114,7 +114,7 @@ func cleanUp() {
 }
 
 func getBackendPool(cfg *config.Config) *backend.Pool {
-	logger.Info("Initializing backend pool with {} upstream servers", len(cfg.Upstream))
+	logger.Info("Initializing backend pool with %d upstream servers", len(cfg.Upstream))
 
 	if len(cfg.Upstream) == 0 {
 		logger.Fatal("No upstream servers configured")
@@ -130,6 +130,6 @@ func getBackendPool(cfg *config.Config) *backend.Pool {
 	}
 
 	total, alive := backendPool.GetBackendCount()
-	logger.Info("Backend pool initialized: {}/{} backends alive", alive, total)
+	logger.Info("Backend pool initialized: %s/%s backends alive", alive, total)
 	return backendPool
 }

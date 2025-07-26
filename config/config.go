@@ -26,7 +26,7 @@ type HealthCheck struct {
 func ParseConfig(cfg *Config, filePath string) error {
 	f, err := os.Open(filePath)
 	if err != nil {
-		logger.Error("Failed to read configuration file: {}", err)
+		logger.Error("Failed to read configuration file: %s", err)
 		return err
 	}
 	defer f.Close()
@@ -34,7 +34,7 @@ func ParseConfig(cfg *Config, filePath string) error {
 	decoder := yaml.NewDecoder(f)
 	err = decoder.Decode(cfg)
 	if err != nil {
-		logger.Error("Failed to decode configuration file: {}", err)
+		logger.Error("Failed to decode configuration file: %s", err)
 		return err
 	}
 
@@ -60,7 +60,7 @@ func ParseConfig(cfg *Config, filePath string) error {
 		if cfg.HealthCheck.UnhealthyThreshold == 0 {
 			cfg.HealthCheck.UnhealthyThreshold = 3
 		}
-		logger.Info("Health check enabled with interval: {}", cfg.HealthCheck.Interval)
+		logger.Info("Health check enabled with interval: %s", cfg.HealthCheck.Interval)
 	}
 
 	return nil

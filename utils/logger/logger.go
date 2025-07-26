@@ -43,36 +43,36 @@ func SetLevel(l int) {
 	level = l
 }
 
-func Debug(v ...any) {
+func Debug(format string, v ...any) {
 	if level <= LevelDebug {
-		debugLog.Output(2, sprint(v...))
+		debugLog.Output(2, sprint(format, v...))
 	}
 }
 
-func Info(v ...any) {
+func Info(format string, v ...any) {
 	if level <= LevelInfo {
-		infoLog.Output(2, sprint(v...))
+		infoLog.Output(2, sprint(format, v...))
 	}
 }
 
-func Warn(v ...any) {
+func Warn(format string, v ...any) {
 	if level <= LevelWarn {
-		warnLog.Output(2, sprint(v...))
+		warnLog.Output(2, sprint(format, v...))
 	}
 }
 
-func Error(v ...any) {
+func Error(format string, v ...any) {
 	if level <= LevelError {
-		errorLog.Output(2, sprint(v...))
+		errorLog.Output(2, sprint(format, v...))
 	}
 }
 
-func Fatal(v ...any) {
+func Fatal(format string, v ...any) {
 	if level <= LevelFatal {
-		fatalLog.Output(2, sprint(v...))
+		fatalLog.Output(2, sprint(format, v...))
 	}
 }
 
-func sprint(v ...any) string {
-	return fmt.Sprintln(v...)
+func sprint(format string, v ...any) string {
+	return fmt.Sprintf(format, v...)
 }

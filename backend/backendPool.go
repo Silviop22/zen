@@ -12,17 +12,12 @@ type Pool struct {
 	mu            sync.RWMutex // Protects allBackends slice
 }
 
-func NewBackendPool(backends []string) *Pool {
-	allBps := make([]*Backend, 0, len(backends))
-	aliveBps := make([]*Backend, 0, len(backends))
+func NewBackendPool(addresses []string) *Pool {
+	allBps := make([]*Backend, 0, len(addresses))
+	aliveBps := make([]*Backend, 0, len(addresses))
 
-	for _, addr := range backends {
-		connPool := NewConnectionPool(addr, 10, 100, 30)
-		backend := &Backend{
-			Address:        addr,
-			ConnectionPool: connPool,
-			Alive:          true,
-		}
+	for _, addr := range addresses {
+		backend := NewBackend(addr)
 		allBps = append(allBps, backend)
 		aliveBps = append(aliveBps, backend)
 	}
@@ -35,7 +30,7 @@ func NewBackendPool(backends []string) *Pool {
 		aliveBackends: aliveValue,
 	}
 
-	logger.Info("Backend pool created with {} backends", len(allBps))
+	logger.Info("Backend pool created with %d backends", len(allBps))
 	return pool
 }
 
@@ -56,24 +51,29 @@ func (pool *Pool) updateBackendStatus(address string, alive bool) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
+	var targetBackend *Backend
 	for _, backend := range pool.allBackends {
 		if backend.Address == address {
-			backend.Alive = alive
+			targetBackend = backend
+			backend.SetAlive(alive)
 			break
 		}
 	}
 
+	if targetBackend == nil {
+		logger.Warn("Backend {} not found during status update", address)
+		return
+	}
+
 	aliveBackends := make([]*Backend, 0, len(pool.allBackends))
 	for _, backend := range pool.allBackends {
-		if backend.Alive {
+		if backend.IsAlive() {
 			aliveBackends = append(aliveBackends, backend)
 		}
 	}
 
 	pool.aliveBackends.Store(aliveBackends)
-
-	logger.Info("Backend pool updated: {}/{} backends alive",
-		len(aliveBackends), len(pool.allBackends))
+	logger.Info("Backend pool updated: {}/{} backends alive", len(aliveBackends), len(pool.allBackends))
 }
 
 func (pool *Pool) GetBackendCount() (total int, alive int) {

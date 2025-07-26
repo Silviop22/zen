@@ -48,7 +48,6 @@ func (ch *ConnectionHandler) HandleConnection(clientConnection net.Conn) {
 
 	waitGroup.Wait()
 
-	//TODO: Mark backends as !alive
 	if clientToBackendErr != nil && clientToBackendErr != io.EOF {
 		logger.Error("Error copying client to backend for {}: {}", address, clientToBackendErr)
 	}
@@ -63,9 +62,9 @@ func (ch *ConnectionHandler) HandleConnection(clientConnection net.Conn) {
 
 func copyData(source net.Conn, target net.Conn, waitGroup *sync.WaitGroup, connectionError *error) {
 	defer waitGroup.Done()
-	_, *connectionError = io.Copy(source, target)
+	_, *connectionError = io.Copy(target, source)
 
-	if tcpConnection, ok := source.(*net.TCPConn); ok {
+	if tcpConnection, ok := target.(*net.TCPConn); ok {
 		tcpConnection.CloseWrite()
 	}
 	logger.Debug("Data copy completed from {} to {}", source.RemoteAddr(), target.RemoteAddr())
